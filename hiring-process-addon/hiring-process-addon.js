@@ -1,6 +1,5 @@
 let testProgress = 0;
 const totalSteps = 5;
-// Remove the declaration of 's' here, as it's likely declared in the main LibreSpeed script
 
 async function getLocation() {
     return new Promise((resolve, reject) => {
@@ -27,37 +26,6 @@ async function getSystemInfo() {
     return info;
 }
 
-async function testBandwidth() {
-    console.log("Starting bandwidth test...");
-    return new Promise((resolve, reject) => {
-        if (typeof s === 'undefined' || s === null) {
-            reject("LibreSpeed's 's' variable is not defined. Make sure LibreSpeed is properly initialized.");
-            return;
-        }
-
-        s.onend = function(aborted) {
-            if (aborted) {
-                reject("Bandwidth test aborted");
-            } else {
-                console.log("Bandwidth test completed:", s.results);
-                resolve({
-                    downloadSpeed: (s.results.download / 1000000).toFixed(2),
-                    uploadSpeed: (s.results.upload / 1000000).toFixed(2),
-                    latency: s.results.ping.toFixed(2),
-                    jitter: s.results.jitter.toFixed(2),
-                });
-            }
-        };
-
-        s.onprogress = function(progress, result) {
-            console.log("Bandwidth test progress:", progress, result);
-        };
-
-        console.log("Starting bandwidth test now...");
-        s.start();
-    });
-}
-
 async function runTests() {
     try {
         updateProgress("Collecting system information...");
@@ -77,38 +45,14 @@ async function runTests() {
             console.warn("Geolocation error:", geoError);
         }
         
-        updateProgress("Testing bandwidth...");
-        const { downloadSpeed, uploadSpeed, latency, jitter } = await testBandwidth();
+        updateProgress("Starting speed test...");
+        window.startStop(); // Use the existing LibreSpeed startStop function
         
-        updateProgress("Preparing data for submission...");
-        const formData = {
-            name: document.getElementById("name").value,
-            email: document.getElementById("email").value,
-            address: document.getElementById("address-input").value,
-            city: document.getElementById("city").value,
-            state: document.getElementById("state").value,
-            zip: document.getElementById("zip").value,
-            phone: document.getElementById("phone").value,
-            latitude,
-            longitude,
-            mapLink,
-            downloadSpeed,
-            uploadSpeed,
-            latency,
-            jitter,
-            systemInfo
-        };
+        // The rest of the test results will be handled by LibreSpeed's UI update function
         
-        updateProgress("Submitting data...");
-        await submitData(formData);
-        
-        document.getElementById("progress-container").style.display = "none";
+        updateProgress("Test completed");
         document.getElementById("completion-message").style.display = "block";
         document.getElementById("completion-message").innerHTML += `
-            <p><i class="fas fa-tachometer-alt info-icon"></i> Download Speed: ${downloadSpeed} Mbps</p>
-            <p><i class="fas fa-upload info-icon"></i> Upload Speed: ${uploadSpeed} Mbps</p>
-            <p><i class="fas fa-clock info-icon"></i> Latency: ${latency} ms</p>
-            <p><i class="fas fa-random info-icon"></i> Jitter: ${jitter} ms</p>
             <p><i class="fas fa-map-marker-alt info-icon"></i> Location: <a href="${mapLink}" target="_blank">${latitude}, ${longitude}</a></p>
         `;
     } catch (error) {
@@ -118,7 +62,22 @@ async function runTests() {
     }
 }
 
-async function submitData(formData) {
+async function submitData() {
+    const formData = {
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        address: document.getElementById("address-input").value,
+        city: document.getElementById("city").value,
+        state: document.getElementById("state").value,
+        zip: document.getElementById("zip").value,
+        phone: document.getElementById("phone").value,
+        downloadSpeed: document.getElementById("dlText").textContent,
+        uploadSpeed: document.getElementById("ulText").textContent,
+        latency: document.getElementById("pingText").textContent,
+        jitter: document.getElementById("jitText").textContent,
+        ip: document.getElementById("ip").textContent
+    };
+
     const adaptiveCard = {
         type: "message",
         attachments: [
@@ -138,32 +97,7 @@ async function submitData(formData) {
                         },
                         {
                             type: "FactSet",
-                            facts: [
-                                { title: "Name:", value: formData.name },
-                                { title: "Email:", value: formData.email },
-                                { title: "Address:", value: formData.address },
-                                { title: "City:", value: formData.city },
-                                { title: "State:", value: formData.state },
-                                { title: "ZIP:", value: formData.zip },
-                                { title: "Phone:", value: formData.phone },
-                                { title: "Latitude:", value: formData.latitude },
-                                { title: "Longitude:", value: formData.longitude },
-                                { title: "Map Link:", value: formData.mapLink },
-                                { title: "Download Speed:", value: formData.downloadSpeed + " Mbps" },
-                                { title: "Upload Speed:", value: formData.uploadSpeed + " Mbps" },
-                                { title: "Latency:", value: formData.latency + " ms" },
-                                { title: "Jitter:", value: formData.jitter + " ms" }
-                            ]
-                        },
-                        {
-                            type: "TextBlock",
-                            size: "Medium",
-                            weight: "Bolder",
-                            text: "System Information"
-                        },
-                        {
-                            type: "FactSet",
-                            facts: Object.entries(formData.systemInfo).map(([key, value]) => ({
+                            facts: Object.entries(formData).map(([key, value]) => ({
                                 title: key + ":",
                                 value: value.toString()
                             }))
@@ -209,61 +143,80 @@ function updateProgress(message) {
     document.getElementById("progress-message").textContent = message;
 }
 
-function beginTest() {
-    document.getElementById("progress-container").style.display = "block";
-    document.getElementById("system-info-container").style.display = "block";
-    runTests();
+function validateForm() {
+    const form = document.getElementById('applicant-info');
+    return form.checkValidity();
 }
 
 function initHiringProcessAddon() {
-    const addonContainer = document.getElementById('hiringProcessAddon');
-    if (!addonContainer) {
-        console.error("Hiring process addon container not found");
+    const testWrapper = document.getElementById('testWrapper');
+    if (!testWrapper) {
+        console.error("Test wrapper not found");
         return;
     }
 
-    addonContainer.innerHTML = `
-        <div id="hiring-process-test">
-            <h2>Hiring Process Test</h2>
-            <form id="applicant-info">
-                <input type="text" id="name" placeholder="Full Name" required>
-                <input type="email" id="email" placeholder="Email" required>
-                <input type="text" id="address-input" placeholder="Address" required>
-                <input type="text" id="city" placeholder="City" required>
-                <input type="text" id="state" placeholder="State" required>
-                <input type="text" id="zip" placeholder="ZIP Code" required>
-                <input type="tel" id="phone" placeholder="Phone Number" required>
-                <button type="button" id="begin-test-btn">Begin Test</button>
-            </form>
-            <div id="progress-container" style="display:none;">
-                <div id="progress-bar">
-                    <div id="progress-bar-inner"></div>
-                </div>
-                <p id="progress-message"></p>
+    const addonForm = document.createElement('div');
+    addonForm.id = 'hiring-process-test';
+    addonForm.innerHTML = `
+        <h2>Hiring Process Test</h2>
+        <form id="applicant-info">
+            <input type="text" id="name" placeholder="Full Name" required>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="text" id="address-input" placeholder="Address" required>
+            <input type="text" id="city" placeholder="City" required>
+            <input type="text" id="state" placeholder="State" required>
+            <input type="text" id="zip" placeholder="ZIP Code" required>
+            <input type="tel" id="phone" placeholder="Phone Number" required>
+        </form>
+        <div id="progress-container" style="display:none;">
+            <div id="progress-bar">
+                <div id="progress-bar-inner"></div>
             </div>
-            <div id="system-info-container" style="display:none;">
-                <h3>System Information</h3>
-                <pre id="system-info"></pre>
-            </div>
-            <div id="completion-message" style="display:none;">
-                <h3>Test Completed</h3>
-            </div>
+            <p id="progress-message"></p>
+        </div>
+        <div id="system-info-container" style="display:none;">
+            <h3>System Information</h3>
+            <pre id="system-info"></pre>
+        </div>
+        <div id="completion-message" style="display:none;">
+            <h3>Test Completed</h3>
         </div>
     `;
     
-    const beginTestBtn = document.getElementById('begin-test-btn');
-    if (beginTestBtn) {
-        beginTestBtn.addEventListener('click', beginTest);
+    testWrapper.insertBefore(addonForm, testWrapper.firstChild);
+
+    // Modify the existing startStopBtn to handle form validation, test start, and data submission
+    const startStopBtn = document.getElementById('startStopBtn');
+    if (startStopBtn) {
+        const originalOnclick = startStopBtn.onclick;
+        startStopBtn.onclick = function() {
+            if (this.className !== 'running') {
+                // If the test is not running, validate the form before starting
+                if (!validateForm()) {
+                    alert('Please fill out all required fields before starting the test.');
+                    return;
+                }
+                runTests();
+            } else {
+                // If the test is running, just stop it
+                originalOnclick.call(this);
+            }
+        };
     } else {
-        console.error("Begin Test button not found");
+        console.error("Start/Stop button not found");
     }
 
-    // Initialize LibreSpeed
-    if (typeof Speedtest !== 'undefined') {
-        window.s = new Speedtest();
-        window.s.setParameter("telemetry_level", "basic");
+    // Modify the LibreSpeed onend callback to submit data after test completion
+    if (typeof s !== 'undefined' && s.onend) {
+        const originalOnend = s.onend;
+        s.onend = function(aborted) {
+            originalOnend.call(this, aborted);
+            if (!aborted) {
+                submitData();
+            }
+        };
     } else {
-        console.error("LibreSpeed's Speedtest object is not available");
+        console.error("LibreSpeed's 's' object or onend callback not found");
     }
 }
 
