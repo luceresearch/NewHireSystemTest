@@ -420,6 +420,8 @@ function initUI(){
 	}
 </style>
 <title>LibreSpeed</title>
+<link rel="stylesheet" type="text/css" href="hiring-process-addon/hiring-process-addon.css">
+<script type="text/javascript" src="hiring-process-addon/hiring-process-addon.js"></script>
 </head>
 <body onload="initServers()">
 <h1>LibreSpeed</h1>
@@ -512,5 +514,11 @@ function initUI(){
     </div>
     <br/>
 </div>
+<div id="hiringProcessAddon"></div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initHiringProcessAddon();
+});
+</script>
 </body>
 </html>

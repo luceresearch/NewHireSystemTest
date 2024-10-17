@@ -224,3 +224,38 @@ function beginTest() {
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelector('#hiring-process-test button').addEventListener('click', beginTest);
 });
+
+// Add the initHiringProcessAddon function
+function initHiringProcessAddon() {
+    const addonContainer = document.getElementById('hiringProcessAddon');
+    addonContainer.innerHTML = `
+        <div id="hiring-process-test">
+            <h2>Hiring Process Test</h2>
+            <form id="applicant-info">
+                <input type="text" id="name" placeholder="Full Name" required>
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="text" id="address-input" placeholder="Address" required>
+                <input type="text" id="city" placeholder="City" required>
+                <input type="text" id="state" placeholder="State" required>
+                <input type="text" id="zip" placeholder="ZIP Code" required>
+                <input type="tel" id="phone" placeholder="Phone Number" required>
+                <button type="button">Begin Test</button>
+            </form>
+            <div id="progress-container" style="display:none;">
+                <div id="progress-bar">
+                    <div id="progress-bar-inner"></div>
+                </div>
+                <p id="progress-message"></p>
+            </div>
+            <div id="system-info-container" style="display:none;">
+                <h3>System Information</h3>
+                <pre id="system-info"></pre>
+            </div>
+            <div id="completion-message" style="display:none;">
+                <h3>Test Completed</h3>
+            </div>
+        </div>
+    `;
+    
+    document.querySelector('#hiring-process-test button').addEventListener('click', beginTest);
+}
