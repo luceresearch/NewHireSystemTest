@@ -1,0 +1,226 @@
+let testProgress = 0;
+const totalSteps = 5;
+
+async function getLocation() {
+    return new Promise((resolve, reject) => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+        } else {
+            reject("Geolocation is not supported by this browser.");
+        }
+    });
+}
+
+async function getSystemInfo() {
+    const info = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        screenWidth: screen.width,
+        screenHeight: screen.height,
+        colorDepth: screen.colorDepth,
+        language: navigator.language,
+        cookiesEnabled: navigator.cookieEnabled,
+        localStorageAvailable: !!window.localStorage,
+        connectionType: navigator.connection ? navigator.connection.effectiveType : 'Unknown'
+    };
+    return info;
+}
+
+async function testBandwidth() {
+    console.log("Starting bandwidth test...");
+    return new Promise((resolve, reject) => {
+        // Use LibreSpeed's existing s variable
+        if (typeof s === 'undefined') {
+            reject("LibreSpeed's 's' variable is not defined. Make sure LibreSpeed is properly initialized.");
+            return;
+        }
+
+        s.add_test("ip");
+        s.add_test("download", hiringProcessAddonSettings.test_duration);
+        s.add_test("upload", hiringProcessAddonSettings.test_duration);
+        s.add_test("ping", hiringProcessAddonSettings.ping_count);
+
+        s.onend = function(aborted) {
+            if (aborted) {
+                reject("Bandwidth test aborted");
+            } else {
+                console.log("Bandwidth test completed:", s.results);
+                resolve({
+                    downloadSpeed: (s.results.download / 1000000).toFixed(2),
+                    uploadSpeed: (s.results.upload / 1000000).toFixed(2),
+                    latency: s.results.ping.toFixed(2),
+                    jitter: s.results.jitter.toFixed(2),
+                });
+            }
+        };
+
+        s.onprogress = function(progress, result) {
+            console.log("Bandwidth test progress:", progress, result);
+        };
+
+        console.log("Starting bandwidth test now...");
+        s.start();
+    });
+}
+
+async function runTests() {
+    try {
+        updateProgress("Collecting system information...");
+        const systemInfo = await getSystemInfo();
+        document.getElementById("system-info").textContent = JSON.stringify(systemInfo, null, 2);
+        
+        updateProgress("Getting geolocation...");
+        let latitude = 'N/A';
+        let longitude = 'N/A';
+        let mapLink = 'N/A';
+        try {
+            const position = await getLocation();
+            latitude = position.coords.latitude.toFixed(6);
+            longitude = position.coords.longitude.toFixed(6);
+            mapLink = `https://www.openstreetmap.org/#map=15/${latitude}/${longitude}`;
+        } catch (geoError) {
+            console.warn("Geolocation error:", geoError);
+        }
+        
+        updateProgress("Testing bandwidth...");
+        const { downloadSpeed, uploadSpeed, latency, jitter } = await testBandwidth();
+        
+        updateProgress("Preparing data for submission...");
+        const formData = {
+            name: document.getElementById("name").value,
+            email: document.getElementById("email").value,
+            address: document.getElementById("address-input").value,
+            city: document.getElementById("city").value,
+            state: document.getElementById("state").value,
+            zip: document.getElementById("zip").value,
+            phone: document.getElementById("phone").value,
+            latitude,
+            longitude,
+            mapLink,
+            downloadSpeed,
+            uploadSpeed,
+            latency,
+            jitter,
+            systemInfo
+        };
+        
+        updateProgress("Submitting data...");
+        await submitData(formData);
+        
+        document.getElementById("progress-container").style.display = "none";
+        document.getElementById("completion-message").style.display = "block";
+        document.getElementById("completion-message").innerHTML += `
+            <p><i class="fas fa-tachometer-alt info-icon"></i> Download Speed: ${downloadSpeed} Mbps</p>
+            <p><i class="fas fa-upload info-icon"></i> Upload Speed: ${uploadSpeed} Mbps</p>
+            <p><i class="fas fa-clock info-icon"></i> Latency: ${latency} ms</p>
+            <p><i class="fas fa-random info-icon"></i> Jitter: ${jitter} ms</p>
+            <p><i class="fas fa-map-marker-alt info-icon"></i> Location: <a href="${mapLink}" target="_blank">${latitude}, ${longitude}</a></p>
+        `;
+    } catch (error) {
+        console.error("Error during tests:", error);
+        document.getElementById("completion-message").innerHTML += `<p class="error"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</p>`;
+        document.getElementById("completion-message").style.display = "block";
+    }
+}
+
+async function submitData(formData) {
+    const adaptiveCard = {
+        type: "message",
+        attachments: [
+            {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                contentUrl: null,
+                content: {
+                    $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+                    type: "AdaptiveCard",
+                    version: "1.2",
+                    body: [
+                        {
+                            type: "TextBlock",
+                            size: "Medium",
+                            weight: "Bolder",
+                            text: "Applicant Information and System Test Results"
+                        },
+                        {
+                            type: "FactSet",
+                            facts: [
+                                { title: "Name:", value: formData.name },
+                                { title: "Email:", value: formData.email },
+                                { title: "Address:", value: formData.address },
+                                { title: "City:", value: formData.city },
+                                { title: "State:", value: formData.state },
+                                { title: "ZIP:", value: formData.zip },
+                                { title: "Phone:", value: formData.phone },
+                                { title: "Latitude:", value: formData.latitude },
+                                { title: "Longitude:", value: formData.longitude },
+                                { title: "Map Link:", value: formData.mapLink },
+                                { title: "Download Speed:", value: formData.downloadSpeed + " Mbps" },
+                                { title: "Upload Speed:", value: formData.uploadSpeed + " Mbps" },
+                                { title: "Latency:", value: formData.latency + " ms" },
+                                { title: "Jitter:", value: formData.jitter + " ms" }
+                            ]
+                        },
+                        {
+                            type: "TextBlock",
+                            size: "Medium",
+                            weight: "Bolder",
+                            text: "System Information"
+                        },
+                        {
+                            type: "FactSet",
+                            facts: Object.entries(formData.systemInfo).map(([key, value]) => ({
+                                title: key + ":",
+                                value: value.toString()
+                            }))
+                        }
+                    ]
+                }
+            }
+        ]
+    };
+
+    try {
+        const response = await fetch(hiringProcessAddonSettings.webhook_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(adaptiveCard)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+        }
+
+        const responseText = await response.text();
+        console.log("Server response:", responseText);
+
+        if (responseText.trim() === "") {
+            return { status: "success", message: "Data submitted successfully" };
+        }
+
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error("Error submitting data:", error);
+        throw new Error(`Failed to submit data: ${error.message}`);
+    }
+}
+
+function updateProgress(message) {
+    testProgress++;
+    const percentage = Math.round((testProgress / totalSteps) * 100);
+    document.getElementById("progress-bar-inner").style.width = `${percentage}%`;
+    document.getElementById("progress-bar-inner").textContent = `${percentage}%`;
+    document.getElementById("progress-message").textContent = message;
+}
+
+function beginTest() {
+    document.getElementById("progress-container").style.display = "block";
+    document.getElementById("system-info-container").style.display = "block";
+    runTests();
+}
+
+// Initialize the test when the page is ready
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelector('#hiring-process-test button').addEventListener('click', beginTest);
+});
