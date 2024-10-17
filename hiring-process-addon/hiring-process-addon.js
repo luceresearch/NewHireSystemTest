@@ -1,6 +1,6 @@
 let testProgress = 0;
 const totalSteps = 5;
-let s; // Declare s in a broader scope
+// Remove the declaration of 's' here, as it's likely declared in the main LibreSpeed script
 
 async function getLocation() {
     return new Promise((resolve, reject) => {
@@ -260,12 +260,15 @@ function initHiringProcessAddon() {
 
     // Initialize LibreSpeed
     if (typeof Speedtest !== 'undefined') {
-        s = new Speedtest();
-        s.setParameter("telemetry_level", "basic");
+        window.s = new Speedtest();
+        window.s.setParameter("telemetry_level", "basic");
     } else {
         console.error("LibreSpeed's Speedtest object is not available");
     }
 }
+
+// Make initHiringProcessAddon globally accessible
+window.initHiringProcessAddon = initHiringProcessAddon;
 
 // Initialize the addon when the page is ready
 document.addEventListener('DOMContentLoaded', function() {
