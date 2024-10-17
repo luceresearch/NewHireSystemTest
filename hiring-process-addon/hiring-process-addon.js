@@ -207,9 +207,9 @@ function initHiringProcessAddon() {
     }
 
     // Modify the LibreSpeed onend callback to submit data after test completion
-    if (typeof s !== 'undefined' && s.onend) {
-        const originalOnend = s.onend;
-        s.onend = function(aborted) {
+    if (typeof window.s !== 'undefined' && window.s.onend) {
+        const originalOnend = window.s.onend;
+        window.s.onend = function(aborted) {
             originalOnend.call(this, aborted);
             if (!aborted) {
                 submitData();
