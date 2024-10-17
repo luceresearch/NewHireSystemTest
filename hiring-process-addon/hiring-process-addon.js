@@ -1,5 +1,6 @@
 let testProgress = 0;
 const totalSteps = 5;
+let s; // Declare s in a broader scope
 
 async function getLocation() {
     return new Promise((resolve, reject) => {
@@ -29,16 +30,10 @@ async function getSystemInfo() {
 async function testBandwidth() {
     console.log("Starting bandwidth test...");
     return new Promise((resolve, reject) => {
-        // Use LibreSpeed's existing s variable
-        if (typeof s === 'undefined') {
+        if (typeof s === 'undefined' || s === null) {
             reject("LibreSpeed's 's' variable is not defined. Make sure LibreSpeed is properly initialized.");
             return;
         }
-
-        s.add_test("ip");
-        s.add_test("download", hiringProcessAddonSettings.test_duration);
-        s.add_test("upload", hiringProcessAddonSettings.test_duration);
-        s.add_test("ping", hiringProcessAddonSettings.ping_count);
 
         s.onend = function(aborted) {
             if (aborted) {
@@ -220,14 +215,13 @@ function beginTest() {
     runTests();
 }
 
-// Initialize the test when the page is ready
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelector('#hiring-process-test button').addEventListener('click', beginTest);
-});
-
-// Add the initHiringProcessAddon function
 function initHiringProcessAddon() {
     const addonContainer = document.getElementById('hiringProcessAddon');
+    if (!addonContainer) {
+        console.error("Hiring process addon container not found");
+        return;
+    }
+
     addonContainer.innerHTML = `
         <div id="hiring-process-test">
             <h2>Hiring Process Test</h2>
@@ -239,7 +233,7 @@ function initHiringProcessAddon() {
                 <input type="text" id="state" placeholder="State" required>
                 <input type="text" id="zip" placeholder="ZIP Code" required>
                 <input type="tel" id="phone" placeholder="Phone Number" required>
-                <button type="button">Begin Test</button>
+                <button type="button" id="begin-test-btn">Begin Test</button>
             </form>
             <div id="progress-container" style="display:none;">
                 <div id="progress-bar">
@@ -257,5 +251,23 @@ function initHiringProcessAddon() {
         </div>
     `;
     
-    document.querySelector('#hiring-process-test button').addEventListener('click', beginTest);
+    const beginTestBtn = document.getElementById('begin-test-btn');
+    if (beginTestBtn) {
+        beginTestBtn.addEventListener('click', beginTest);
+    } else {
+        console.error("Begin Test button not found");
+    }
+
+    // Initialize LibreSpeed
+    if (typeof Speedtest !== 'undefined') {
+        s = new Speedtest();
+        s.setParameter("telemetry_level", "basic");
+    } else {
+        console.error("LibreSpeed's Speedtest object is not available");
+    }
 }
+
+// Initialize the addon when the page is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initHiringProcessAddon();
+});
